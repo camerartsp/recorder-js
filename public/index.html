@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gravador de Tela</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #f0f0f0;
+            padding: 20px;
+        }
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            text-align: center;
+            width: 100%;
+            max-width: 800px;
+        }
+        h1 {
+            color: #333;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        .buttons {
+            margin-bottom: 20px;
+        }
+        button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        #stopRecording {
+            background-color: #f44336;
+        }
+        #stopRecording:hover {
+            background-color: #d32f2f;
+        }
+        .video-container {
+            position: relative;
+            width: 100%;
+            padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+            height: 0;
+            overflow: hidden;
+        }
+        .video-container video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 20px;
+            }
+            button {
+                font-size: 14px;
+                padding: 8px 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Gravador de Tela</h1>
+        <div class="buttons">
+            <button id="startRecording">Iniciar Gravação</button>
+            <button id="stopRecording" disabled>Parar Gravação</button>
+        </div>
+        <div class="video-container">
+            <video id="preview" autoplay muted playbackRate="1"></video> <!-- Preview da gravação com playbackRate = 1 -->
+        </div>
+    </div>
+
+    <script>
+        const startBtn = document.getElementById('startRecording');
+        const stopBtn = document.getElementById('stopRecording');
+        const videoElement = document.getElementById('preview'); // Elemento para o preview da gravação
+
+        let mediaRecorder;
+        let recordedChunks = [];
+        let stream; // Variável para armazenar o stream da tela
+
+        // Iniciar a gravação e exibir o preview
+        startBtn.addEventListener('click', async () => {
+            try {
+                // Captura a tela com taxa de quadros (frameRate) especificada
+                stream = await navigator.mediaDevices.getDisplayMedia({
+                    video: {
+                        frameRate: 30 // Defina um valor de frame rate (30 é o padrão normal)
+                    }
+                });
+                
+                // Exibe o stream no vídeo de preview
+                videoElement.srcObject = stream;
+
+                // Detecta se o usuário interrompe o compartilhamento manualmente
+                stream.getVideoTracks()[0].addEventListener('ended', () => {
+                    stopRecording();
+                });
+
+                // Configura o MediaRecorder
+                mediaRecorder = new MediaRecorder(stream);
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        recordedChunks.push(event.data);
+                    }
+                };
+
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, {
+                        type: 'video/webm'
+                    });
+                    const formData = new FormData();
+                    formData.append('file', blob, 'recording.webm');
+
+                    fetch('/upload', {
+                        method: 'POST',
+                        body: formData
+                    }).then(response => response.json())
+                      .then(data => console.log(data))
+                      .catch(error => console.error('Erro no upload:', error));
+
+                    recordedChunks = [];
+                };
+
+                mediaRecorder.start();
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+            } catch (error) {
+                console.error('Erro ao iniciar a gravação:', error);
+                alert('Não foi possível iniciar a gravação. Verifique as permissões do navegador.');
+            }
+        });
+
+        // Parar gravação ao clicar no botão ou quando o compartilhamento é interrompido
+        stopBtn.addEventListener('click', stopRecording);
+
+        // Função para parar gravação e compartilhar tela
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+
+                // Parar o stream de vídeo
+                const tracks = stream.getTracks();
+                tracks.forEach(track => track.stop()); // Interrompe o compartilhamento de tela
+
+                // Limpa o preview
+                videoElement.srcObject = null;
+            }
+        }
+    </script>
+</body>
+</html>
