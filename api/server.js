@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Caminho para a pasta 'uploads'
-const uploadsDir = path.join(__dirname, 'uploads');
+const uploadsDir = path.join(__dirname, '../uploads');
 
 // Verifica se a pasta 'uploads' existe. Se não, cria automaticamente.
 if (!fs.existsSync(uploadsDir)) {
@@ -28,37 +28,19 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-app.use(express.static('public'));
+// Importando rotas
+const deleteRoute = require('./delete');
+const uploadRoute = require('./upload');
+const filesRoute = require('./file');
 
-// Endpoint para listar arquivos
-app.get('/api/files', (req, res) => {
-    fs.readdir(uploadsDir, (err, files) => {
-        if (err) {
-            return res.status(500).json({ error: 'Erro ao listar arquivos.' });
-        }
-        res.json(files);
-    });
-});
-
-// Endpoint para upload de arquivos
-app.post('/api/upload', upload.single('file'), (req, res) => {
-    console.log('Arquivo de vídeo recebido:', req.file.path);
-    res.json({ message: 'Vídeo carregado com sucesso!', filePath: req.file.path });
-});
-
-// Endpoint para deletar arquivos
-app.delete('/api/delete/:filename', (req, res) => {
-    const filePath = path.join(uploadsDir, req.params.filename);
-    fs.unlink(filePath, (err) => {
-        if (err) {
-            return res.status(500).json({ error: 'Erro ao excluir arquivo.' });
-        }
-        res.json({ message: 'Arquivo excluído com sucesso!' });
-    });
-});
-
-// Servir arquivos estáticos
+// Middleware para servir arquivos estáticos
+app.use(express.static(path.join(__dirname, '../public')));
 app.use('/uploads', express.static(uploadsDir));
+
+// Usando as rotas
+app.use('/api/delete', deleteRoute);
+app.use('/api/upload', uploadRoute);
+app.use('/api/files', filesRoute);
 
 // Middleware global para lidar com erros de permissão
 app.use((err, req, res, next) => {
