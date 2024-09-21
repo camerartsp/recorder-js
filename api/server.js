@@ -18,7 +18,7 @@ if (!fs.existsSync(uploadsDir)) {
 // Configuração do Multer para armazenamento de arquivos de vídeo
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, 'uploads/');
+        cb(null, uploadsDir);
     },
     filename: (req, file, cb) => {
         // Mantém o formato de vídeo original (por exemplo, .webm)
@@ -28,12 +28,45 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-app.use(express.static('public')); // Pasta para arquivos estáticos
+app.use(express.static('public'));
 
-// Rota para upload do vídeo gravado
-app.post('/upload', upload.single('file'), (req, res) => {
+// Endpoint para listar arquivos
+app.get('/api/files', (req, res) => {
+    fs.readdir(uploadsDir, (err, files) => {
+        if (err) {
+            return res.status(500).json({ error: 'Erro ao listar arquivos.' });
+        }
+        res.json(files);
+    });
+});
+
+// Endpoint para upload de arquivos
+app.post('/api/upload', upload.single('file'), (req, res) => {
     console.log('Arquivo de vídeo recebido:', req.file.path);
     res.json({ message: 'Vídeo carregado com sucesso!', filePath: req.file.path });
+});
+
+// Endpoint para deletar arquivos
+app.delete('/api/delete/:filename', (req, res) => {
+    const filePath = path.join(uploadsDir, req.params.filename);
+    fs.unlink(filePath, (err) => {
+        if (err) {
+            return res.status(500).json({ error: 'Erro ao excluir arquivo.' });
+        }
+        res.json({ message: 'Arquivo excluído com sucesso!' });
+    });
+});
+
+// Servir arquivos estáticos
+app.use('/uploads', express.static(uploadsDir));
+
+// Middleware global para lidar com erros de permissão
+app.use((err, req, res, next) => {
+    if (err.name === 'NotAllowedError') {
+        res.status(403).json({ error: 'Permissão negada' });
+    } else {
+        next(err);
+    }
 });
 
 const PORT = process.env.PORT || 3000;
