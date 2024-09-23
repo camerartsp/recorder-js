@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Caminho para a pasta 'uploads'
-const uploadsDir = path.join(__dirname, '../uploads');
+const uploadsDir = path.join(__dirname, 'uploads');
 
 // Verifica se a pasta 'uploads' existe. Se não, cria automaticamente.
 if (!fs.existsSync(uploadsDir)) {
@@ -29,12 +29,12 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // Importando rotas
-const deleteRoute = require('./delete');
-const uploadRoute = require('./upload');
-const filesRoute = require('./file');
+const deleteRoute = require('./api/delete');
+const uploadRoute = require('./api/upload');
+const filesRoute = require('./api/file');
 
 // Middleware para servir arquivos estáticos
-app.use(express.static(path.join(__dirname, '../public')));
+app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(uploadsDir));
 
 // Usando as rotas
@@ -51,7 +51,5 @@ app.use((err, req, res, next) => {
     }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Servidor rodando na porta ${PORT}`);
-});
+// Exporta o app para ser usado como serverless function
+module.exports = app;
