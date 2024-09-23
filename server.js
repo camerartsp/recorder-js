@@ -51,5 +51,5 @@ app.use((err, req, res, next) => {
     }
 });
 
-// Exporta o app para ser usado como serverless function
+// Exporta o app para ser usado como uma função serverless
 module.exports = app;
