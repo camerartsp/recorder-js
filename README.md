@@ -39,7 +39,17 @@
     npm install
     ```
 
-3. **Inicie o servidor:**
+3. **Configure suas variáveis de ambiente (opcional):**
+
+    Para testar localmente em produção e usar o armazenamento da Vercel, você precisará criar uma variável de ambiente com seu token de leitura e escrita. Crie um arquivo chamado `.env` na raiz do projeto e adicione a seguinte linha:
+
+    ```env
+    BLOB_READ_WRITE_TOKEN=seu_token_aqui
+    ```
+
+    Certifique-se de substituir `seu_token_aqui` pelo seu token real.
+
+4. **Inicie o servidor:**
 
     ```bash
     node server.js

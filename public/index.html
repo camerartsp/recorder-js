@@ -121,7 +121,7 @@
             border-radius: 4px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             position: relative;
-            background: url('path/to/your-placeholder-image.jpg') no-repeat center center; /* Substitua pelo caminho da sua imagem */
+            background: url('path/to/your-placeholder-image.jpg') no-repeat center center;
             background-size: cover;
         }
         .video-container video {
@@ -202,7 +202,6 @@
         <div class="file-viewer">
             <h2>Arquivos Gravados</h2>
             <ul class="file-list" id="fileList">
-                <!-- Lista de arquivos será preenchida dinamicamente -->
             </ul>
         </div>
         <div class="recorder-container">
@@ -226,176 +225,184 @@
     </div>
 
     <script>
-        const startBtn = document.getElementById('startRecording');
-        const stopBtn = document.getElementById('stopRecording');
-        const videoElement = document.getElementById('preview');
-        const videoContainer = document.getElementById('videoContainer');
-        const fileList = document.getElementById('fileList');
-        const loadingOverlay = document.getElementById('loadingOverlay');
-        const loadingMessages = document.getElementById('loadingMessages');
+const startBtn = document.getElementById('startRecording');
+const stopBtn = document.getElementById('stopRecording');
+const videoElement = document.getElementById('preview');
+const videoContainer = document.getElementById('videoContainer');
+const fileList = document.getElementById('fileList');
+const loadingOverlay = document.getElementById('loadingOverlay');
+const loadingMessages = document.getElementById('loadingMessages');
 
-        let mediaRecorder;
-        let recordedChunks = [];
-        let stream;
+let mediaRecorder;
+let recordedChunks = [];
+let stream;
 
-        function updateFileList() {
-            fetch('/api/files')
-                .then(response => response.json())
-                .then(files => {
-                    fileList.innerHTML = '';
-                    files.forEach(file => {
-                        const li = document.createElement('li');
-                        const fileNameSpan = document.createElement('span');
-                        fileNameSpan.innerHTML = `<i class="fas fa-file-video"></i> ${file}`;
-                        fileNameSpan.className = 'file-name';
-                        fileNameSpan.onclick = () => playVideo(file);
-                        
-                        const fileActions = document.createElement('div');
-                        fileActions.className = 'file-actions';
+function updateFileList() {
+    fetch('/api/blob')
+        .then(response => response.json())
+        .then(blobs => { 
+            fileList.innerHTML = '';
+            blobs.forEach(blob => {
+                const li = document.createElement('li');
+                const fileNameSpan = document.createElement('span');
+                fileNameSpan.innerHTML = `<i class="fas fa-file-video"></i> ${blob.pathname}`;
+                fileNameSpan.className = 'file-name';
+                fileNameSpan.onclick = () => playVideo(blob); 
+                
+                const fileActions = document.createElement('div');
+                fileActions.className = 'file-actions';
 
-                        const downloadIcon = document.createElement('i');
-                        downloadIcon.className = 'fas fa-download';
-                        downloadIcon.onclick = (e) => {
-                            e.stopPropagation();
-                            downloadVideo(file);
-                        };
-                        
-                        const deleteIcon = document.createElement('i');
-                        deleteIcon.className = 'fas fa-trash-alt';
-                        deleteIcon.onclick = (e) => {
-                            e.stopPropagation();
-                            deleteVideo(file);
-                        };
+                const downloadIcon = document.createElement('i');
+                downloadIcon.className = 'fas fa-download';
+                downloadIcon.onclick = (e) => {
+                    e.stopPropagation();
+                    downloadVideo(blob); 
+                };
+                
+                const deleteIcon = document.createElement('i');
+                deleteIcon.className = 'fas fa-trash-alt';
+                deleteIcon.onclick = (e) => {
+                    e.stopPropagation();
+                    deleteVideo(blob); 
+                };
 
-                        fileActions.appendChild(downloadIcon);
-                        fileActions.appendChild(deleteIcon);
-                        
-                        li.appendChild(fileNameSpan);
-                        li.appendChild(fileActions);
-                        fileList.appendChild(li);
-                    });
-                })
-                .catch(error => console.error('Erro ao buscar arquivos:', error));
-        }
+                fileActions.appendChild(downloadIcon);
+                fileActions.appendChild(deleteIcon);
+                
+                li.appendChild(fileNameSpan);
+                li.appendChild(fileActions);
+                fileList.appendChild(li);
+            });
+        })
+        .catch(error => console.error('Erro ao buscar arquivos:', error));
+}
 
-        function playVideo(filename) {
-            videoElement.src = `/uploads/${filename}`;
-            videoContainer.classList.add('active');
-            videoElement.play();
-        }
+function playVideo(blob) {
+    videoElement.src = blob.downloadUrl; 
+    videoContainer.classList.add('active');
+    videoElement.play();
+}
 
-        function downloadVideo(filename) {
-            const link = document.createElement('a');
-            link.href = `/uploads/${filename}`;
-            link.download = filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
+function downloadVideo(blob) {
+    const link = document.createElement('a');
+    link.href = blob.downloadUrl;
+    link.download = blob.pathname; 
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
 
-        function deleteVideo(filename) {
-            if (confirm(`Tem certeza que deseja excluir o arquivo ${filename}?`)) {
-                fetch(`/api/delete/${filename}`, { method: 'DELETE' })
-                    .then(response => response.json())
-                    .then(data => {
-                        console.log('Arquivo excluído:', data);
-                        updateFileList();
-                        if (videoElement.src.includes(filename)) {
-                            videoElement.src = '';
-                            videoContainer.classList.remove('active');
-                        }
-                    })
-                    .catch(error => console.error('Erro ao excluir arquivo:', error));
+function deleteVideo(blob) {
+    if (confirm(`Tem certeza que deseja excluir o arquivo ${blob.pathname}?`)) {
+        const encodedUrl = encodeURIComponent(blob.url); 
+        fetch(`/api/blob/${encodedUrl}`, {
+            method: 'DELETE',
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Erro ao excluir o arquivo');
             }
-        }
-
-        startBtn.addEventListener('click', async () => {
-            try {
-                stream = await navigator.mediaDevices.getDisplayMedia({
-                    video: { frameRate: 30 }
-                });
-                
-                videoElement.srcObject = stream;
-                videoContainer.classList.add('active');
-
-                stream.getVideoTracks()[0].addEventListener('ended', () => {
-                    stopRecording();
-                });
-
-                mediaRecorder = new MediaRecorder(stream);
-                
-                mediaRecorder.ondataavailable = (event) => {
-                    if (event.data.size > 0) {
-                        recordedChunks.push(event.data);
-                    }
-                };
-
-                mediaRecorder.onstop = () => {
-                    const blob = new Blob(recordedChunks, {
-                        type: 'video/webm'
-                    });
-                    const formData = new FormData();
-                    formData.append('file', blob, `recording_${Date.now()}.webm`);
-
-                    // Exibir o loading
-                    loadingOverlay.classList.add('active');
-                    loadingMessages.textContent = 'Estamos trabalhando nisso...';
-
-                    fetch('/api/upload', {
-                        method: 'POST',
-                        body: formData
-                    }).then(response => response.json())
-                      .then(data => {
-                          console.log('Upload completo:', data);
-                          updateFileList();
-                          // Atualizar mensagem do loading
-                          loadingMessages.textContent = 'Preparando o vídeo...';
-                          setTimeout(() => {
-                              loadingMessages.textContent = 'PRONTO!';
-                              setTimeout(() => {
-                                  loadingOverlay.classList.remove('active');
-                              }, 1000);
-                          }, 2000);
-                      })
-                      .catch(error => {
-                          console.error('Erro no upload:', error);
-                          loadingMessages.textContent = 'Erro no upload. Tente novamente.';
-                          setTimeout(() => {
-                              loadingOverlay.classList.remove('active');
-                          }, 2000);
-                      });
-
-                    recordedChunks = [];
-                };
-
-                mediaRecorder.start();
-                startBtn.disabled = true;
-                stopBtn.disabled = false;
-            } catch (error) {
-                if (error.name !== 'NotAllowedError') {
-                    console.error('Erro ao iniciar a gravação:', error);
-                    alert('Não foi possível iniciar a gravação. Verifique as permissões do navegador.');
+        
+            if (response.status === 204) {
+                console.log('Arquivo excluído com sucesso');
+                updateFileList();
+                if (videoElement.src.includes(blob.url)) {
+                    videoElement.src = '';
+                    videoContainer.classList.remove('active');
                 }
+                return; 
             }
+            return response.json(); 
+        })
+        .catch(error => console.error('Erro ao excluir arquivo:', error));
+    }
+}
+
+startBtn.addEventListener('click', async () => {
+    try {
+        stream = await navigator.mediaDevices.getDisplayMedia({
+            video: { frameRate: 30 }
+        });
+        
+        videoElement.srcObject = stream;
+        videoContainer.classList.add('active');
+
+        stream.getVideoTracks()[0].addEventListener('ended', () => {
+            stopRecording();
         });
 
-        stopBtn.addEventListener('click', stopRecording);
-
-        function stopRecording() {
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.stop();
-                startBtn.disabled = false;
-                stopBtn.disabled = true;
-
-                const tracks = stream.getTracks();
-                tracks.forEach(track => track.stop());
-
-                videoElement.srcObject = null;
-                videoContainer.classList.remove('active');
+        mediaRecorder = new MediaRecorder(stream);
+        
+        mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+                recordedChunks.push(event.data);
             }
-        }
+        };
 
-        updateFileList();
+        mediaRecorder.onstop = () => {
+            const blob = new Blob(recordedChunks, {
+                type: 'video/webm'
+            });
+            const formData = new FormData();
+            formData.append('file', blob, `recording_${Date.now()}.webm`);
+
+            loadingOverlay.classList.add('active');
+            loadingMessages.textContent = 'Estamos trabalhando nisso...';
+
+            fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            }).then(response => response.json())
+              .then(data => {
+                  console.log('Upload completo:', data);
+                  updateFileList();
+                  loadingMessages.textContent = 'Preparando o vídeo...';
+                  setTimeout(() => {
+                      loadingMessages.textContent = 'PRONTO!';
+                      setTimeout(() => {
+                          loadingOverlay.classList.remove('active');
+                      }, 1000);
+                  }, 2000);
+              })
+              .catch(error => {
+                  console.error('Erro no upload:', error);
+                  loadingMessages.textContent = 'Erro no upload. Tente novamente.';
+                  setTimeout(() => {
+                      loadingOverlay.classList.remove('active');
+                  }, 2000);
+              });
+
+            recordedChunks = [];
+        };
+
+        mediaRecorder.start();
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+    } catch (error) {
+        if (error.name !== 'NotAllowedError') {
+            console.error('Erro ao iniciar a gravação:', error);
+            alert('Não foi possível iniciar a gravação. Verifique as permissões do navegador.');
+        }
+    }
+});
+
+stopBtn.addEventListener('click', stopRecording);
+
+function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+
+        const tracks = stream.getTracks();
+        tracks.forEach(track => track.stop());
+
+        videoElement.srcObject = null;
+        videoContainer.classList.remove('active');
+    }
+}
+
+updateFileList();
     </script>
 </body>
 </html>
