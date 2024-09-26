@@ -403,6 +403,10 @@ function stopRecording() {
 }
 
 updateFileList();
+
+window.addEventListener('beforeunload', function() {
+    navigator.sendBeacon('/api/delete-all-blobs');
+  });
     </script>
 </body>
 </html>
